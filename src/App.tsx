@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, Download, FileText, Image as ImageIcon, Info, Link2, Upload } from 'lucide-react';
+import { BookOpen, ChevronDown, Download, FileText, HelpCircle, Image as ImageIcon, Info, Link2, Upload } from 'lucide-react';
 import { exportLeadMagnetPdf } from './lib/pdfExport';
 import { getSpecialTagExamples, parseLeadMagnet, slugify, type MarkdownBlock } from './lib/leadMagnet';
 
@@ -48,6 +48,137 @@ Prends un moment pour t’installer. Ajuste ta position si tu en ressens le beso
 2. Observer les sensations
 3. Revenir doucement à l’instant présent`;
 
+const GUIDE_MARKDOWN = `# Guide d'utilisation Lead Magnet Studio
+Auteur : Lead Magnet Studio
+
+Lead Magnet Studio transforme votre Markdown en un document PDF au format A4, prêt à partager. Ce guide vous explique pas à pas comment utiliser chaque fonctionnalité.
+
+## L'interface en un coup d'œil
+
+L'application est divisée en deux colonnes :
+
+- **Colonne de gauche** : vos paramètres, votre texte Markdown et la liste des balises visuelles
+- **Colonne de droite** : un aperçu fidèle du document A4, page par page
+
+> Tout ce que vous écrivez dans la zone de texte apparaît instantanément dans l'aperçu de droite.
+
+## Renseigner l'auteur et le lien
+
+En haut de la colonne de gauche, deux champs vous permettent de personnaliser votre document :
+
+1. **Nom de l'auteur** : apparaît dans l'en-tête et le pied de page de chaque page du PDF
+2. **Lien direct (URL)** : apparaît dans le pied de page comme lien cliquable dans le PDF exporté
+
+> Ces champs se remplissent automatiquement si votre Markdown contient une ligne commençant par Auteur suivie de deux-points, ou Lien suivie de deux-points. Vous pouvez les modifier à tout moment sans changer le texte.
+
+:::pagebreak
+
+## Importer un fichier existant
+
+Cliquez sur « Importer un fichier .md » pour charger un document Markdown depuis votre ordinateur. Le contenu remplace celui de l'éditeur et le nom du fichier s'affiche en dessous du bouton.
+
+## La syntaxe Markdown prise en charge
+
+### Titres
+
+Utilisez le dièse pour créer des titres. Un dièse donne un grand titre, deux donnent un sous-titre, trois un sous-sous-titre. Le premier titre de votre document devient automatiquement le nom du fichier PDF.
+
+### Mise en forme du texte
+
+- Le double astérisque met le texte en **gras**
+- L'astérisque simple met le texte en *italique*
+- Les crochets suivis de parenthèses créent un [lien cliquable](https://exemple.com)
+
+### Listes
+
+Utilisez un tiret, une étoile ou un plus pour des listes à puces. Utilisez un numéro suivi d'un point pour des listes numérotées.
+
+### Citations
+
+Commencez une ligne par le symbole supérieur à pour créer une citation mise en évidence avec une barre verticale.
+
+### Tableaux
+
+Séparez les colonnes par des barres verticales. La première ligne sert d'en-tête.
+
+| Élément | Description |
+| --- | --- |
+| Ligne 1 | Première donnée |
+| Ligne 2 | Deuxième donnée |
+
+### Séparateur
+
+Trois tirets seuls sur une ligne créent un espace entre les blocs de contenu.
+
+:::pagebreak
+
+## Les balises visuelles
+
+Lead Magnet Studio propose des balises spéciales pour enrichir votre document. Chaque balise commence par trois deux-points suivis d'un mot-clé et de ses attributs entre guillemets.
+
+### Couverture pleine page
+
+La balise cover affiche une image en pleine page, idéale pour la première page de votre document.
+
+:::cover url="https://placehold.co/1240x1754/png" alt="Exemple de couverture"
+
+### Bannière
+
+La balise banner affiche une image large et fine, parfaite pour séparer des sections.
+
+:::banner url="https://placehold.co/1200x300/png" alt="Exemple de bannière"
+
+### Illustration
+
+La balise illustration insère une image de taille moyenne dans le flux du texte.
+
+:::illustration url="https://placehold.co/800x500/png" alt="Exemple d'illustration"
+
+:::pagebreak
+
+### Vidéo
+
+La balise video affiche une image d'aperçu avec un lien vers votre vidéo. L'attribut url contient le lien de la vidéo, image contient l'image d'aperçu et label le texte affiché dessous.
+
+:::video url="https://exemple.com/video" image="https://placehold.co/900x500/png" label="Voir la vidéo"
+
+### QR code
+
+La balise qr affiche un QR code centré avec un texte descriptif en dessous.
+
+:::qr url="https://exemple.com" image="https://placehold.co/240x240/png" label="Ressource complémentaire"
+
+### Lignes de réponse
+
+La balise answer génère des lignes vides pour que le lecteur puisse écrire. Le nombre de lignes est défini par l'attribut lines.
+
+:::answer lines="3"
+
+### Saut de page
+
+La balise pagebreak insère un saut de page. Tout le contenu qui suit apparaît sur la page suivante du PDF.
+
+:::pagebreak
+
+## Exporter en PDF
+
+Cliquez sur le bouton « Télécharger le PDF » en haut à droite pour générer votre document. Le fichier est nommé automatiquement à partir du titre de votre document. Les liens sont conservés et cliquables dans le PDF final.
+
+## Bonnes pratiques
+
+1. Commencez par un titre avec un dièse pour nommer votre document
+2. Ajoutez une ligne Auteur et une ligne Lien au début de votre texte
+3. Utilisez la balise cover pour une première page impactante
+4. Insérez des sauts de page pour structurer votre contenu
+5. Vérifiez l'aperçu avant d'exporter
+
+> L'aperçu de droite reflète exactement ce que vous obtiendrez dans le PDF. Utilisez-le pour vérifier la mise en page avant de télécharger.
+
+1. Rédigez votre contenu dans la zone de texte
+2. Ajustez l'auteur et le lien si besoin
+3. Vérifiez l'aperçu page par page
+4. Cliquez sur « Télécharger le PDF »`;
+
 export default function App() {
   const [markdown, setMarkdown] = useState(SAMPLE_MARKDOWN);
   const [fileName, setFileName] = useState('mon-lead-magnet.md');
@@ -88,6 +219,21 @@ export default function App() {
     }
   };
 
+  const handleLoadGuide = async () => {
+    if (isExporting) return;
+    setMarkdown(GUIDE_MARKDOWN);
+    setAuthorOverride('Lead Magnet Studio');
+    setLinkOverride('');
+    setFileName('guide-utilisation.md');
+    const guideDoc = { ...parseLeadMagnet(GUIDE_MARKDOWN), author: 'Lead Magnet Studio' };
+    setIsExporting(true);
+    try {
+      await exportLeadMagnetPdf(guideDoc, 'guide-utilisation-lead-magnet-studio.pdf');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#ecebe8] text-[#252525]">
       <header className="border-b border-[#d6d4cf] bg-[#f8f7f4]">
@@ -99,9 +245,14 @@ export default function App() {
               <p className="text-xs uppercase tracking-[0.18em] text-[#77736c]">Markdown vers PDF · A4</p>
             </div>
           </div>
-          <button onClick={handleExport} disabled={isExporting || document.blocks.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#252525] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#444] disabled:cursor-not-allowed disabled:opacity-50">
-            <Download size={16} /> {isExporting ? 'Création du PDF…' : 'Télécharger le PDF'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={handleLoadGuide} disabled={isExporting} className="inline-flex items-center gap-2 rounded-md border border-[#d6d4cf] bg-white px-4 py-3 text-sm font-semibold text-[#252525] shadow-sm transition hover:bg-[#fbfaf8] disabled:cursor-not-allowed disabled:opacity-50">
+              <HelpCircle size={16} /> Guide d'utilisation
+            </button>
+            <button onClick={handleExport} disabled={isExporting || document.blocks.length === 0} className="inline-flex items-center gap-2 rounded-md bg-[#252525] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#444] disabled:cursor-not-allowed disabled:opacity-50">
+              <Download size={16} /> {isExporting ? 'Création du PDF…' : 'Télécharger le PDF'}
+            </button>
+          </div>
         </div>
       </header>
 
