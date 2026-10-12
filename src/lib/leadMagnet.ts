@@ -1,4 +1,12 @@
-export type SpecialBlockType = 'cover' | 'banner' | 'illustration' | 'video' | 'qr' | 'pagebreak' | 'answer';
+export type SpecialBlockType = 'cover' | 'banner' | 'illustration' | 'video' | 'qr' | 'pagebreak' | 'answer' | 'gallery';
+
+export interface GalleryItem {
+  image?: string;
+  title: string;
+  description?: string;
+  url?: string;
+  kind?: 'image' | 'video';
+}
 
 export interface MarkdownBlock {
   type: 'heading' | 'paragraph' | 'bullet' | 'ordered' | 'quote' | 'table' | 'special' | 'spacer';
@@ -13,6 +21,7 @@ export interface MarkdownBlock {
     alt?: string;
     label?: string;
     lines?: number;
+    items?: GalleryItem[];
   };
 }
 
@@ -24,7 +33,8 @@ export interface LeadMagnetDocument {
   warnings: string[];
 }
 
-const SPECIAL_PATTERN = /^:::(cover|banner|illustration|video|qr|pagebreak|answer)(?:\s+(.*?))?\s*$/i;
+const SPECIAL_PATTERN = /^:::(cover|banner|illustration|video|qr|pagebreak|answer|gallery)(?:\s+(.*?))?\s*$/i;
+const GALLERY_ITEM_PATTERN = /^(?:-\s*)?:::?item(?:\s+(.*?))?\s*$/i;
 const ATTRIBUTE_PATTERN = /(\w+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
 
 export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
@@ -36,6 +46,7 @@ export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
   let title = 'Mon lead magnet';
   let author = '';
   let link = '';
+  let galleryItems: GalleryItem[] | null = null;
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
@@ -54,6 +65,28 @@ export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
   for (const sourceLine of lines) {
     const line = sourceLine.trimEnd();
     const trimmed = line.trim();
+
+    if (galleryItems) {
+      if (trimmed === ':::') {
+        blocks.push({ type: 'special', special: { type: 'gallery', items: galleryItems } });
+        galleryItems = null;
+        continue;
+      }
+      const itemMatch = trimmed.match(GALLERY_ITEM_PATTERN);
+      if (itemMatch) {
+        const attributes = parseAttributes(itemMatch[1] ?? '');
+        if (!attributes.title) warnings.push('Chaque élément de galerie doit contenir un titre.');
+        galleryItems.push({
+          image: attributes.image,
+          title: attributes.title || 'Sans titre',
+          description: attributes.description,
+          url: safeExternalUrl(attributes.url),
+          kind: attributes.kind?.toLowerCase() === 'video' ? 'video' : 'image',
+        });
+      }
+      continue;
+    }
+
     const specialMatch = trimmed.match(SPECIAL_PATTERN);
 
     if (specialMatch) {
@@ -61,7 +94,9 @@ export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
       flushTable();
       const specialType = specialMatch[1].toLowerCase() as SpecialBlockType;
       const attributes = parseAttributes(specialMatch[2] ?? '');
-      if (specialType === 'pagebreak') {
+      if (specialType === 'gallery') {
+        galleryItems = [];
+      } else if (specialType === 'pagebreak') {
         blocks.push({ type: 'special', special: { type: specialType } });
       } else if (specialType === 'answer') {
         blocks.push({ type: 'special', special: { type: specialType, lines: Number(attributes.lines) || 4 } });
@@ -71,8 +106,8 @@ export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
           type: 'special',
           special: {
             type: specialType,
-            url: attributes.url,
-            image: attributes.image,
+            url: safeExternalUrl(attributes.url),
+            image: safeExternalUrl(attributes.image),
             alt: attributes.alt,
             label: attributes.label,
           },
@@ -158,9 +193,22 @@ export function parseLeadMagnet(markdown: string): LeadMagnetDocument {
     paragraph.push(trimmed);
   }
 
+  if (galleryItems) {
+    blocks.push({ type: 'special', special: { type: 'gallery', items: galleryItems } });
+  }
   flushParagraph();
   flushTable();
-  return { title, author, link, blocks, warnings };
+  return { title, author, link: safeExternalUrl(link) || '', blocks, warnings };
+}
+
+function safeExternalUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function parseAttributes(source: string): Record<string, string> {
@@ -180,6 +228,9 @@ export function getSpecialTagExamples(): string[] {
     ':::cover url="https://placehold.co/1240x1754/png" alt="Couverture"',
     ':::banner url="https://placehold.co/1200x300/png" alt="Bannière"',
     ':::illustration url="https://placehold.co/800x500/png" alt="Illustration"',
+    ':::gallery',
+    ':::item image="https://placehold.co/800x500/png" title="Titre" description="Description" url="https://exemple.com"',
+    ':::',
     ':::video url="https://exemple.com/video" image="https://placehold.co/900x500/png" label="Voir la vidéo"',
     ':::qr url="https://exemple.com" image="https://placehold.co/240x240/png"',
     ':::answer lines="5"',

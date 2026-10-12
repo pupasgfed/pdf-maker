@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ChevronDown, Download, FileText, HelpCircle, Image as ImageIcon, Info, Link2, Upload } from 'lucide-react';
 import { exportLeadMagnetPdf } from './lib/pdfExport';
-import { getSpecialTagExamples, parseLeadMagnet, slugify, type MarkdownBlock } from './lib/leadMagnet';
+import { getSpecialTagExamples, parseLeadMagnet, slugify, type GalleryItem, type MarkdownBlock } from './lib/leadMagnet';
 
 const SAMPLE_MARKDOWN = `# Atelier mon premier contact hypno-dom
 Auteur : Hypnosekinky
@@ -15,7 +15,13 @@ Lien : https://hypnosekinky.com
 
 > Tu ne sors pas de cet atelier avec une simple théorie : tu repars avec des repères concrets.
 
-:::banner url="https://placehold.co/1200x300/png" alt="Bannière de l'atelier"
+:::banner url="https://placehold.co/1200x300/png" alt="Bannière de l’atelier"
+
+:::gallery
+:::item image="https://placehold.co/800x500/png?text=Preparation" title="Préparer la séance" description="Les repères essentiels avant de commencer." url="https://example.com/preparation"
+:::item image="https://placehold.co/800x500/png?text=Pratique" title="Passer à la pratique" description="Une approche progressive, claire et attentive." kind="video" url="https://example.com/video"
+:::item image="https://placehold.co/800x500/png?text=Ressources" title="Ressources utiles" description="Des supports à consulter à votre rythme." url="https://example.com/ressources"
+:::
 
 ### Tout ce qu’il faut pour commencer
 
@@ -142,6 +148,18 @@ La balise video affiche une image d'aperçu avec un lien vers votre vidéo. L'at
 
 :::video url="https://exemple.com/video" image="https://placehold.co/900x500/png" label="Voir la vidéo"
 
+### Galerie de contenus
+
+La balise gallery crée une grille de cartes avec trois contenus par ligne. Chaque carte peut contenir une image ou une miniature vidéo, un titre, une description et un lien externe facultatif. Utilisez kind="video" pour afficher l’indication vidéo.
+
+:::gallery
+:::item image="https://placehold.co/800x500/png?text=Photo" title="Une photo" description="Une courte description de votre contenu."
+:::item image="https://placehold.co/800x500/png?text=Video" title="Une vidéo" description="Une miniature qui ouvre votre vidéo." kind="video" url="https://exemple.com/video"
+:::item image="https://placehold.co/800x500/png?text=Ressource" title="Une ressource" description="Un contenu complémentaire à découvrir." url="https://exemple.com"
+:::
+
+Les vidéos sont affichées comme des miniatures cliquables dans le PDF. Le lecteur ouvre le lien externe en cliquant dessus.
+
 ### QR code
 
 La balise qr affiche un QR code centré avec un texte descriptif en dessous.
@@ -197,7 +215,7 @@ export default function App() {
   useEffect(() => {
     if (parsed.author && !authorOverride) setAuthorOverride(parsed.author);
     if (parsed.link && !linkOverride) setLinkOverride(parsed.link);
-  }, [parsed.author, parsed.link]);
+  }, [parsed.author, parsed.link, authorOverride, linkOverride]);
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
@@ -375,9 +393,24 @@ function SpecialPreview({ special }: { special: MarkdownBlock['special'] }) {
   if (special.type === 'pagebreak') return <div className="border-t border-dashed border-[#aaa69e] py-1 text-center text-[9px] uppercase tracking-[0.14em] text-[#9b968d]">Saut de page</div>;
   if (special.type === 'answer') return <div className="space-y-5 py-2">{Array.from({ length: special.lines || 4 }, (_, index) => <div key={index} className="border-b border-[#999]" />)}</div>;
   if (special.type === 'video') return <figure className="space-y-2"><a href={special.url} target="_blank" rel="noreferrer" className="group relative block overflow-hidden bg-[#efefed]"><RemoteImage src={special.image} alt={special.label || 'Aperçu vidéo'} className="aspect-[16/9] w-full object-cover" /><span className="absolute inset-0 flex items-center justify-center bg-black/25 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">Ouvrir la vidéo</span></a><figcaption className="text-center text-[10px] text-[#77736c]">{special.label || 'Voir la vidéo'}</figcaption></figure>;
+  if (special.type === 'gallery') return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{(special.items || []).map((item, index) => <GalleryCard key={`${item.title}-${index}`} item={item} />)}</div>;
   if (special.type === 'qr') return <figure className="flex flex-col items-center gap-2"><RemoteImage src={special.image} alt={special.label || 'QR code'} className="h-28 w-28 object-cover" /><figcaption className="text-[10px] text-[#77736c]">{special.label || special.url}</figcaption></figure>;
   const className = special.type === 'cover' ? 'aspect-[1240/1754]' : special.type === 'banner' ? 'aspect-[4/1]' : 'aspect-[8/5]';
   return <RemoteImage src={special.url} alt={special.alt || special.type} className={`w-full object-cover ${className}`} />;
+}
+
+function GalleryCard({ item }: { item: GalleryItem }) {
+  const card = <div className="overflow-hidden rounded-lg border border-[#deddd9] bg-[#fafaf8] shadow-[0_3px_12px_rgba(45,42,38,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(45,42,38,0.1)]">
+    <div className="relative">
+      <RemoteImage src={item.image} alt={item.title} className="aspect-[4/3] w-full object-cover" />
+      {item.kind === 'video' && <span className="absolute bottom-2 left-2 rounded-full bg-[#252525]/85 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-white">Vidéo</span>}
+    </div>
+    <div className="space-y-1.5 p-3">
+      <h4 className="text-[11px] font-semibold leading-tight">{item.title}</h4>
+      {item.description && <p className="text-[10px] leading-[1.45] text-[#77736c]">{item.description}</p>}
+    </div>
+  </div>;
+  return item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="block">{card}</a> : card;
 }
 
 function RemoteImage({ src, alt, className }: { src?: string; alt: string; className: string }) {
@@ -386,12 +419,12 @@ function RemoteImage({ src, alt, className }: { src?: string; alt: string; class
 }
 
 function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^\)]+\))/g).filter(Boolean);
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
     if (part.startsWith('*') && part.endsWith('*')) return <em key={index}>{part.slice(1, -1)}</em>;
-    const link = part.match(/^\[([^\]]+)\]\(([^\)]+)\)$/);
-    if (link) return <a key={index} href={link[2]} target="_blank" rel="noreferrer" className="underline decoration-[#999] underline-offset-2">{link[1]}</a>;
+    const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (link && /^https?:\/\//i.test(link[2])) return <a key={index} href={link[2]} target="_blank" rel="noreferrer" className="underline decoration-[#999] underline-offset-2">{link[1]}</a>;
     return <span key={index}>{part}</span>;
   });
 }

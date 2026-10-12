@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import type { LeadMagnetDocument, MarkdownBlock } from './leadMagnet';
+import type { GalleryItem, LeadMagnetDocument, MarkdownBlock } from './leadMagnet';
 
 const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
@@ -15,6 +15,54 @@ export async function exportLeadMagnetPdf(document: LeadMagnetDocument, filename
   let y = TOP;
   let pageNumber = 1;
   const pageImageCache = new Map<string, string | null>();
+
+  const renderGallery = async (items: GalleryItem[]) => {
+    if (items.length === 0) return;
+    const gap = 4;
+    const cardWidth = (CONTENT_WIDTH - gap * 2) / 3;
+    const imageHeight = 27;
+    const cardHeight = 58;
+    const rowHeight = cardHeight + 7;
+
+    for (let start = 0; start < items.length; start += 3) {
+      ensureSpace(rowHeight);
+      const rowItems = items.slice(start, start + 3);
+      for (const [columnIndex, item] of rowItems.entries()) {
+        const x = MARGIN_X + columnIndex * (cardWidth + gap);
+        const cardY = y;
+        pdf.setFillColor(250, 250, 248);
+        pdf.setDrawColor(220, 220, 216);
+        pdf.roundedRect(x, cardY, cardWidth, cardHeight, 2, 2, 'FD');
+        const imageData = item.image ? await getImageData(item.image, pageImageCache) : null;
+        if (imageData) {
+          pdf.addImage(imageData, 'JPEG', x + 1, cardY + 1, cardWidth - 2, imageHeight, undefined, 'FAST');
+        } else {
+          pdf.setFillColor(242, 242, 240);
+          pdf.rect(x + 1, cardY + 1, cardWidth - 2, imageHeight, 'F');
+          pdf.setTextColor(...MUTED_COLOR);
+          pdf.setFontSize(6.5);
+          pdf.text('Image indisponible', x + cardWidth / 2, cardY + imageHeight / 2, { align: 'center' });
+        }
+        pdf.setTextColor(...BODY_COLOR);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.5);
+        const titleLines = pdf.splitTextToSize(item.title, cardWidth - 5) as string[];
+        pdf.text(titleLines.slice(0, 2), x + 2.5, cardY + imageHeight + 5, { baseline: 'top' });
+        if (item.description) {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(6.5);
+          const descriptionLines = pdf.splitTextToSize(item.description, cardWidth - 5) as string[];
+          pdf.text(descriptionLines.slice(0, 2), x + 2.5, cardY + imageHeight + 13, { baseline: 'top' });
+        }
+        if (item.url) {
+          pdf.setTextColor(90, 90, 90);
+          pdf.setFontSize(6.5);
+          pdf.textWithLink(item.kind === 'video' ? 'Ouvrir la vidéo' : 'Ouvrir le contenu', x + 2.5, cardY + cardHeight - 3, { url: item.url });
+        }
+      }
+      y += rowHeight;
+    }
+  };
 
   const drawHeaderFooter = () => {
     pdf.setTextColor(...MUTED_COLOR);
@@ -79,6 +127,7 @@ export async function exportLeadMagnetPdf(document: LeadMagnetDocument, filename
       writeParagraph,
       drawImageBlock,
       getImageData: (url) => getImageData(url, pageImageCache),
+      renderGallery,
       currentY: () => y,
       setY: (nextY) => { y = nextY; },
     });
@@ -92,6 +141,7 @@ interface RenderContext {
   writeParagraph: (text: string, size?: number, lineHeight?: number, bold?: boolean) => void;
   drawImageBlock: (url: string | undefined, alt: string | undefined, width: number, height: number) => Promise<void>;
   getImageData: (url: string) => Promise<string | null>;
+  renderGallery: (items: GalleryItem[]) => Promise<void>;
   currentY: () => number;
   setY: (nextY: number) => void;
 }
@@ -169,6 +219,10 @@ async function renderBlock(pdf: jsPDF, block: MarkdownBlock, context: RenderCont
   }
   if (block.type === 'special' && block.special) {
     const special = block.special;
+    if (special.type === 'gallery') {
+      await context.renderGallery(special.items ?? []);
+      return;
+    }
     if (special.type === 'answer') {
       const lineCount = special.lines ?? 4;
       context.ensureSpace(lineCount * 9 + 10);
